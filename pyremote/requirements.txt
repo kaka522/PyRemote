@@ -1,0 +1,11 @@
+# 核心依赖
+python>=3.8
+pycryptodome>=3.19.0  # RSA加密
+pillow>=10.0.0  # 图像处理（屏幕捕获）
+pyautogui>=0.9.54  # 鼠标键盘控制
+flask>=2.3.0  # Web界面
+websockets>=11.0.3  # WebSocket（移动端适配）
+pystun3>=1.2.0  # STUN协议（P2P穿透）
+tkinter>=8.6  # 桌面GUI（Python内置）
+pyttsx3>=2.90  # 语音提示（长辈模式）
+pytest>=7.4.0  # 单元测试

@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>PyRemote Web控制端</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }
+        #screenshot-container { border: 2px solid #333; margin: 20px 0; }
+        #screenshot-img { max-width: 100%; height: auto; }
+        .control-panel { margin: 20px 0; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }
+        .btn { padding: 10px 20px; font-size: 16px; margin: 5px; cursor: pointer; }
+        .input-group { margin: 10px 0; }
+        label { display: inline-block; width: 100px; font-size: 16px; }
+        input { padding: 8px; font-size: 16px; width: 300px; }
+    </style>
+</head>
+<body>
+    <h1>PyRemote Web控制端</h1>
+    
+    <!-- 连接区域 -->
+    <div class="control-panel">
+        <h3>设备连接</h3>
+        <div class="input-group">
+            <label>远程IP：</label>
+            <input type="text" id="remote-host" placeholder="输入远程设备IP">
+        </div>
+        <div class="input-group">
+            <label>远程端口：</label>
+            <input type="number" id="remote-port" value="9999" placeholder="输入远程设备端口">
+        </div>
+        <button class="btn" onclick="connectRemote()">连接</button>
+        <button class="btn" onclick="disconnectRemote()">断开</button>
+        <span id="connect-status" style="margin-left: 20px; color: red;">未连接</span>
+    </div>
+    
+    <!-- 屏幕截图区域 -->
+    <div class="control-panel">
+        <h3>远程屏幕</h3>
+        <div id="screenshot-container">
+            <img id="screenshot-img" src="{{ initial_screenshot }}" alt="远程屏幕">
+        </div>
+        <p>截图刷新：每秒1次（点击屏幕可控制鼠标移动）</p>
+    </div>
+    
+    <!-- 控制区域 -->
+    <div class="control-panel">
+        <h3>基础控制</h3>
+        <button class="btn" onclick="mouseClick('left')">鼠标左键单击</button>
+        <button class="btn" onclick="mouseClick('right')">鼠标右键单击</button>
+        <button class="btn" onclick="mouseClick('left', true)">鼠标左键双击</button>
+        <br>
+        <button class="btn" onclick="mouseScroll('up')">页面上滚</button>
+        <button class="btn" onclick="mouseScroll('down')">页面下滚</button>
+        <br>
+        <div class="input-group">
+            <label>发送按键：</label>
+            <input type="text" id="key-input" placeholder="如enter、ctrl+c">
+            <button class="btn" onclick="pressKey()">发送</button>
+        </div>
+    </div>
+
+    <script>
+        // 定时刷新截图（每秒1次）
+        setInterval(async () => {
+            const resp = await fetch('/api/screenshot');
+            const data = await resp.json();
+            document.getElementById('screenshot-img').src = data.screenshot;
+        }, 1000);
+
+        // 连接远程设备
+        async function connectRemote() {
+            const host = document.getElementById('remote-host').value;
+            const port = document.getElementById('remote-port').value;
+            const resp = await fetch('/api/connect', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ host, port })
+            });
+            const data = await resp.json();
+            if (data.success) {
+                document.getElementById('connect-status').textContent = '已连接';
+                document.getElementById('connect-status').style.color = 'green';
+            } else {
+                alert('连接失败：' + (data.error || '未知错误'));
+            }
+        }
+
+        // 断开连接
+        async function disconnectRemote() {
+            const resp = await fetch('/api/disconnect', { method: 'POST' });
+            const data = await resp.json();
+            if (data.success) {
+                document.getElementById('connect-status').textContent = '未连接';
+                document.getElementById('connect-status').style.color = 'red';
+            }
+        }
+
+        // 鼠标点击
+        async function mouseClick(button, double = false) {
+            await fetch('/api/mouse/click', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ button, double })
+            });
+        }
+
+        // 鼠标滚动
+        async function mouseScroll(direction) {
+            // 滚动通过移动鼠标模拟（简化版，实际可扩展专用API）
+            await fetch('/api/mouse/move', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ x: 0, y: direction === 'up' ? -20 : 20, relative: true })
+            });
+        }
+
+        // 发送按键
+        async function pressKey() {
+            const key = document.getElementById('key-input').value;
+            await fetch('/api/key/press', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key })
+            });
+        }
+
+        // 点击屏幕控制鼠标移动（简化版：点击位置即为目标位置）
+        document.getElementById('screenshot-img').addEventListener('click', async (e) => {
+            const img = e.target;
+            const rect = img.getBoundingClientRect();
+            // 计算点击位置在图片中的比例（映射到远程屏幕分辨率）
+            const xRatio = e.clientX - rect.left;
+            const yRatio = e.clientY - rect.top;
+            // 实际项目中需获取远程屏幕分辨率，此处简化为固定比例
+            await fetch('/api/mouse/move', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ x: xRatio * 2, y: yRatio * 2, relative: false })
+            });
+        });
+    </script>
+</body>
+</html>
